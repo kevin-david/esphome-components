@@ -1,0 +1,23 @@
+name: UPS HID
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  descriptor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -g tests/ups_hid/test_descriptor.cpp -o /tmp/ups-test
+      - run: /tmp/ups-test
+  firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install esphome==2026.10.1
+      - run: python tests/ups_hid/test_sensor_config.py
+      - run: esphome compile tests/ups_hid/firmware.yaml

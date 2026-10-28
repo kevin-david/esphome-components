@@ -1,0 +1,86 @@
+esphome:
+  name: tripplite-3024-test
+
+esp32:
+  board: lolin_s3_mini
+  framework:
+    type: esp-idf
+
+external_components:
+  - source:
+      type: local
+      path: ../../components
+    components: [ups_hid]
+
+# Compile fixture only; add your normal Wi-Fi credentials when deploying.
+wifi:
+  ap:
+    ssid: UPS HID build test
+
+api:
+
+logger:
+  hardware_uart: UART0
+  level: DEBUG
+
+ups_hid:
+  id: ups_monitor
+  protocol: generic
+  usb_vendor_id: 0x09ae
+  usb_product_id: 0x3024
+  fallback_nominal_voltage: 120V
+  update_interval: 30s
+
+sensor:
+  - platform: ups_hid
+    ups_hid_id: ups_monitor
+    type: battery_level
+    name: Battery charge
+  - platform: ups_hid
+    ups_hid_id: ups_monitor
+    type: input_voltage
+    name: Input voltage
+  - platform: ups_hid
+    ups_hid_id: ups_monitor
+    type: output_voltage
+    name: Output voltage
+  - platform: ups_hid
+    ups_hid_id: ups_monitor
+    type: runtime
+    name: Runtime
+  - platform: ups_hid
+    ups_hid_id: ups_monitor
+    type: load_percent
+    name: Load
+
+binary_sensor:
+  - platform: ups_hid
+    ups_hid_id: ups_monitor
+    type: online
+    name: AC present
+  - platform: ups_hid
+    ups_hid_id: ups_monitor
+    type: on_battery
+    name: On battery
+  - platform: ups_hid
+    ups_hid_id: ups_monitor
+    type: low_battery
+    name: Low battery
+  - platform: ups_hid
+    ups_hid_id: ups_monitor
+    type: charging
+    name: Charging
+  - platform: ups_hid
+    ups_hid_id: ups_monitor
+    type: fault
+    name: Fault
+
+text_sensor:
+  - platform: ups_hid
+    ups_hid_id: ups_monitor
+    type: status
+    name: UPS status
+  - platform: ups_hid
+    ups_hid_id: ups_monitor
+    type: battery_status
+    name: Battery status

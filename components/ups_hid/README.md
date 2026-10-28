@@ -247,3 +247,8 @@ A: Yes, beeper settings are stored in UPS NVRAM and persist across reboots.
 ## Development
 
 Use `simulation_mode: true` for testing without UPS hardware. For custom protocols, inherit from `UpsProtocolBase` and implement required methods.
+
+## Tripp Lite 09AE:3024
+
+The generic protocol uses the connected HID report descriptor for this USB ID.
+See [protocol evidence, configuration and pending hardware validation](../../docs/tripplite-3024.md).

@@ -173,8 +173,8 @@ void test_parser_boundaries() {
   assert(std::abs(Descriptor::physical_value(physical,7)-150)<1e-8);
   Fixture f;
   for (size_t len=0;len<f.bytes.size();++len) {
-    // Truncation can be a valid shorter descriptor only at balanced boundaries.
-    d.parse(f.bytes.data(),len);
+    // This fixture has one outer collection, closed only at its final byte.
+    assert(!d.parse(f.bytes.data(),len) && d.fields.empty());
   }
   const uint8_t malformed[] = {0x05};
   assert(!d.parse(malformed,sizeof(malformed)) && d.fields.empty());
