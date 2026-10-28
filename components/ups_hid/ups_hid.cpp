@@ -1,5 +1,7 @@
 #include "ups_hid.h"
 #include "constants_ups.h"
+#include "state_helpers.h"
+#include "tripplite_3024.h"
 #include "transport_factory.h"
 #include "transport_simulation.h"
 #ifdef USE_ESP32
@@ -34,9 +36,34 @@ void UpsHidComponent::setup() {
 
 void UpsHidComponent::update() {
   if (!transport_ || !transport_->is_connected()) {
+    // Discard the descriptor with the connection: a replacement can share VID:PID.
+    bool descriptor_based;
+    {
+      std::lock_guard<std::mutex> lock(data_mutex_);
+      descriptor_based = ups_data_.hid_status.descriptor_based;
+      if (descriptor_based) {
+        ups_data_.reset();
+        ups_data_.hid_status.descriptor_based = true;
+      }
+    }
+    active_protocol_.reset();
+    if (descriptor_based) update_sensors();
     // Device not connected yet - normal during startup or after disconnection
     ESP_LOGD(TAG, log_messages::WAITING_FOR_DEVICE);
     return;
+  }
+
+  if (transport_->connection_id() != transport_connection_id_) {
+    transport_connection_id_ = transport_->connection_id();
+    active_protocol_.reset();
+    {
+      std::lock_guard<std::mutex> lock(data_mutex_);
+      bool descriptor_based = ups_data_.hid_status.descriptor_based ||
+          Tripplite3024::matches(transport_->get_vendor_id(), transport_->get_product_id());
+      ups_data_.reset();
+      ups_data_.hid_status.descriptor_based = descriptor_based;
+    }
+    update_sensors();
   }
   
   // Check if protocol detection is needed
@@ -66,6 +93,8 @@ void UpsHidComponent::update() {
     // Check for timer updates (fast polling during countdowns)
     check_and_update_timers();
   } else {
+    // Publish missing values as unknown on a failed descriptor-based cycle too.
+    if (get_ups_data().hid_status.descriptor_based) update_sensors();
     consecutive_failures_++;
     ESP_LOGW(TAG, log_messages::READ_FAILED, static_cast<unsigned int>(consecutive_failures_));
     
@@ -125,11 +154,16 @@ esp_err_t UpsHidComponent::hid_get_report(uint8_t report_type, uint8_t report_id
 
 esp_err_t UpsHidComponent::hid_set_report(uint8_t report_type, uint8_t report_id,
                                          const uint8_t* data, size_t data_len,
-                                         uint32_t timeout_ms) {
+                                         uint32_t timeout_ms, uint32_t expected_connection) {
   if (!transport_) {
     return ESP_ERR_INVALID_STATE;
   }
-  return transport_->hid_set_report(report_type, report_id, data, data_len, timeout_ms);
+  return transport_->hid_set_report(report_type, report_id, data, data_len, timeout_ms, expected_connection);
+}
+
+esp_err_t UpsHidComponent::get_hid_report_descriptor(std::vector<uint8_t>& descriptor, uint32_t timeout_ms) {
+  descriptor.clear();
+  return transport_ ? transport_->get_hid_report_descriptor(descriptor, timeout_ms) : ESP_ERR_INVALID_STATE;
 }
 
 esp_err_t UpsHidComponent::get_string_descriptor(uint8_t string_index, std::string& result) {
@@ -246,6 +280,12 @@ bool UpsHidComponent::read_ups_data() {
   
   // Read data through protocol
   bool success = active_protocol_->read_data(ups_data_);
+  if (!transport_->is_connected() || transport_->connection_id() != transport_connection_id_) {
+    bool descriptor_based = ups_data_.hid_status.descriptor_based;
+    ups_data_.reset();
+    ups_data_.hid_status.descriptor_based = descriptor_based;
+    return false;
+  }
   
   if (success) {
     ESP_LOGV(TAG, "Successfully read UPS data");
@@ -257,7 +297,8 @@ bool UpsHidComponent::read_ups_data() {
 }
 
 void UpsHidComponent::update_sensors() {
-  std::lock_guard<std::mutex> lock(data_mutex_);
+  // Publishing can synchronously invoke lambdas that read this component.
+  const UpsData ups_data_ = this->get_ups_data();
   
   // Check if any sensors are registered - if not, skip sensor updates
   size_t total_sensors = 0;
@@ -302,6 +343,18 @@ void UpsHidComponent::update_sensors() {
       value = ups_data_.power.input_voltage_nominal;
     } else if (type == sensor_type::OUTPUT_VOLTAGE && !std::isnan(ups_data_.power.output_voltage)) {
       value = ups_data_.power.output_voltage;
+    } else if (type == sensor_type::OUTPUT_POWER && !std::isnan(ups_data_.power.output_power)) {
+      value = ups_data_.power.output_power;
+    } else if (type == sensor_type::OUTPUT_CURRENT) {
+      value = ups_data_.power.output_current;
+    } else if (type == sensor_type::OUTPUT_FREQUENCY) {
+      value = ups_data_.power.output_frequency;
+    } else if (type == sensor_type::OUTPUT_FREQUENCY_NOMINAL) {
+      value = ups_data_.power.output_frequency_nominal;
+    } else if (type == sensor_type::OUTPUT_VOLTAGE_NOMINAL) {
+      value = ups_data_.power.output_voltage_nominal;
+    } else if (type == sensor_type::UPS_APPARENT_POWER_NOMINAL) {
+      value = ups_data_.power.apparent_power_nominal;
     } else if (type == sensor_type::LOAD_PERCENT && !std::isnan(ups_data_.power.load_percent)) {
       value = ups_data_.power.load_percent;
     } else if (type == sensor_type::FREQUENCY && !std::isnan(ups_data_.power.frequency)) {
@@ -310,6 +363,10 @@ void UpsHidComponent::update_sensors() {
       value = ups_data_.power.input_transfer_low;
     } else if (type == sensor_type::INPUT_TRANSFER_HIGH && !std::isnan(ups_data_.power.input_transfer_high)) {
       value = ups_data_.power.input_transfer_high;
+    } else if (type == sensor_type::BATTERY_CHARGE_LOW && !std::isnan(ups_data_.battery.charge_low)) {
+      value = ups_data_.battery.charge_low;
+    } else if (type == sensor_type::BATTERY_CHARGE_WARNING && !std::isnan(ups_data_.battery.charge_warning)) {
+      value = ups_data_.battery.charge_warning;
     } else if (type == sensor_type::BATTERY_RUNTIME_LOW && !std::isnan(ups_data_.battery.runtime_low)) {
       value = ups_data_.battery.runtime_low;
     } else if (type == sensor_type::UPS_REALPOWER_NOMINAL && !std::isnan(ups_data_.power.realpower_nominal)) {
@@ -320,15 +377,13 @@ void UpsHidComponent::update_sensors() {
       value = ups_data_.config.delay_start;
     } else if (type == sensor_type::UPS_DELAY_REBOOT && !std::isnan(ups_data_.config.delay_reboot)) {
       value = ups_data_.config.delay_reboot;
-    } else if (type == sensor_type::UPS_TIMER_REBOOT && ups_data_.test.timer_reboot != -1) {
-      value = ups_data_.test.timer_reboot;
-    } else if (type == sensor_type::UPS_TIMER_SHUTDOWN && ups_data_.test.timer_shutdown != -1) {
-      value = ups_data_.test.timer_shutdown;
-    } else if (type == sensor_type::UPS_TIMER_START && ups_data_.test.timer_start != -1) {
-      value = ups_data_.test.timer_start;
+    } else if (type == sensor_type::UPS_TIMER_REBOOT || type == sensor_type::UPS_TIMER_SHUTDOWN ||
+               type == sensor_type::UPS_TIMER_START || type == sensor_type::UPS_WATCHDOG) {
+      auto seconds=timer_state(ups_data_,type);
+      if (seconds) value=*seconds;
     }
     
-    if (!std::isnan(value)) {
+    if (!std::isnan(value) || ups_data_.hid_status.descriptor_based) {
       sensor->publish_state(value);
     }
   }
@@ -340,17 +395,9 @@ void UpsHidComponent::update_sensors() {
     const std::string& type = sensor_pair.first;
     binary_sensor::BinarySensor* sensor = sensor_pair.second;
     
-    bool state = false;
-    
-    if (type == binary_sensor_type::ONLINE && ups_data_.power.input_voltage_valid()) {
-      state = true;
-    } else if (type == binary_sensor_type::ON_BATTERY && ups_data_.power.input_voltage_valid()) {
-      state = false; // Opposite of online
-    } else if (type == binary_sensor_type::LOW_BATTERY) {
-      state = ups_data_.battery.is_low();
-    }
-    
-    sensor->publish_state(state);
+    auto state = binary_state(ups_data_, type);
+    if (state) sensor->publish_state(*state);
+    else sensor->invalidate_state();
   }
 #endif
   
@@ -392,6 +439,7 @@ void UpsHidComponent::update_sensors() {
       value = ups_data_.device.firmware_aux;
     }
     
+    if (ups_data_.hid_status.descriptor_based && value.empty()) value = "Unknown";
     if (!value.empty()) {
       sensor->publish_state(value);
     }
@@ -672,44 +720,41 @@ void UpsHidComponent::set_fast_polling_mode(bool enable) {
 }
 
 // Convenient state getters for lambda expressions (no sensor entities required)
+bool UpsHidComponent::has_power_status() const {
+  std::lock_guard<std::mutex> lock(data_mutex_);
+  return online_state(ups_data_).has_value();
+}
+
 bool UpsHidComponent::is_online() const {
   std::lock_guard<std::mutex> lock(data_mutex_);
-  // UPS is online when input voltage is valid (same logic as binary sensor update)
-  return ups_data_.power.input_voltage_valid();
+  // Unknown is false for bool lambdas; has_power_status() distinguishes it.
+  return online_state(ups_data_).value_or(false);
 }
 
 bool UpsHidComponent::is_on_battery() const {
   std::lock_guard<std::mutex> lock(data_mutex_);
-  // UPS is on battery when NOT online (opposite of online state)
-  return !ups_data_.power.input_voltage_valid();
+  auto online = online_state(ups_data_);
+  return online && !*online;
 }
 
 bool UpsHidComponent::is_low_battery() const {
   std::lock_guard<std::mutex> lock(data_mutex_);
-  // Use battery's built-in low battery detection
-  return ups_data_.battery.is_low();
+  return low_battery_state(ups_data_).value_or(false);
 }
 
 bool UpsHidComponent::is_charging() const {
   std::lock_guard<std::mutex> lock(data_mutex_);
-  // Charging when online AND battery level is not 100%
-  return ups_data_.power.input_voltage_valid() && 
-         ups_data_.battery.is_valid() && 
-         !std::isnan(ups_data_.battery.level) && 
-         ups_data_.battery.level < 100.0f;
+  return charging_state(ups_data_).value_or(false);
 }
 
 bool UpsHidComponent::has_fault() const {
   std::lock_guard<std::mutex> lock(data_mutex_);
-  // Check for various fault conditions based on available data
-  return ups_data_.power.is_input_out_of_range() || 
-         (!ups_data_.power.is_valid() && !ups_data_.battery.is_valid());
+  return fault_state(ups_data_).value_or(false);
 }
 
 bool UpsHidComponent::is_overloaded() const {
   std::lock_guard<std::mutex> lock(data_mutex_);
-  // Use power's built-in overload detection
-  return ups_data_.power.is_overloaded();
+  return binary_state(ups_data_,binary_sensor_type::OVERLOAD).value_or(false);
 }
 
 float UpsHidComponent::get_battery_level() const {

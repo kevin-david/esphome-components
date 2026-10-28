@@ -36,6 +36,18 @@ BINARY_SENSOR_TYPES = {
     "charging": {
         "device_class": DEVICE_CLASS_BATTERY,
     },
+    "voltage_out_of_range": {},
+    "buck": {},
+    "boost": {},
+    "over_temperature": {},
+    "converter_failure": {},
+    "awaiting_power": {},
+    "discharging": {},
+    "internal_failure": {},
+    "shutdown_imminent": {},
+    "replace_battery": {},
+    "battery_full": {},
+    "battery_empty": {},
 }
 
 

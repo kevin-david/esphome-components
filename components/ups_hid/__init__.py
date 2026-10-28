@@ -25,6 +25,7 @@ CONF_PROTOCOL_TIMEOUT = "protocol_timeout"
 CONF_PROTOCOL = "protocol"
 CONF_FALLBACK_NOMINAL_VOLTAGE = "fallback_nominal_voltage"
 CONF_UPS_HID_ID = "ups_hid_id"
+CONF_DIAGNOSTIC_DUMP = "diagnostic_dump"
 
 # Known UPS vendor IDs for validation
 KNOWN_VENDOR_IDS = {
@@ -122,15 +123,16 @@ CONFIG_SCHEMA = cv.All(
         {
             cv.GenerateID(): cv.declare_id(UpsHidComponent),
             cv.Optional(CONF_SIMULATION_MODE, default=False): cv.boolean,
+            cv.Optional(CONF_DIAGNOSTIC_DUMP, default=False): cv.boolean,
             # Manual USB IDs are now primarily for troubleshooting when auto-detection fails
             cv.Optional(CONF_USB_VENDOR_ID): cv.hex_uint16_t,
             cv.Optional(CONF_USB_PRODUCT_ID): cv.hex_uint16_t,
             cv.Optional(
                 CONF_PROTOCOL_TIMEOUT, default="15s"
             ): validate_protocol_timeout,
-            # Protocol selection: auto (default), apc, cyberpower, generic
+            # Protocol selection: auto (default), apc, cyberpower, goldenmate, tripplite, generic
             cv.Optional(CONF_PROTOCOL, default="auto"): cv.one_of(
-                "auto", "apc", "cyberpower", "goldenmate", "generic", lower=True
+                "auto", "apc", "cyberpower", "goldenmate", "tripplite", "generic", lower=True
             ),
             # Fallback nominal voltage (European 230V default for international compatibility)
             cv.Optional(CONF_FALLBACK_NOMINAL_VOLTAGE, default="230V"): validate_fallback_nominal_voltage,
@@ -146,6 +148,7 @@ async def to_code(config):
     await cg.register_component(var, config)
 
     cg.add(var.set_simulation_mode(config[CONF_SIMULATION_MODE]))
+    cg.add(var.set_diagnostic_dump(config[CONF_DIAGNOSTIC_DUMP]))
     
     # USB IDs are now optional - only set if provided for troubleshooting
     if CONF_USB_VENDOR_ID in config:

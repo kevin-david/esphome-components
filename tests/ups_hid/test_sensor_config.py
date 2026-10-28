@@ -21,7 +21,16 @@ class SensorMetadataTest(unittest.TestCase):
             ("battery_level", "%", "battery", 0),
             ("input_voltage", "V", "voltage", 1),
             ("output_voltage", "V", "voltage", 1),
+            ("output_power", "W", "power", 1),
+            ("load_percent", "%", "", 0),
             ("runtime", "min", "duration", 0),
+            ("frequency", "Hz", "frequency", 1),
+            ("output_frequency", "Hz", "frequency", 1),
+            ("output_frequency_nominal", "Hz", "frequency", 0),
+            ("output_current", "A", "current", 1),
+            ("output_voltage_nominal", "V", "voltage", 0),
+            ("ups_apparent_power_nominal", "VA", "apparent_power", 0),
+            ("ups_watchdog", "s", "duration", 0),
         ]:
             with self.subTest(kind=kind):
                 config = self.config(kind)
@@ -53,6 +62,12 @@ class SensorMetadataTest(unittest.TestCase):
             CORE.add_define(define)
         self.assertEqual(FILTER_SOURCE_FILES(), [])
 
+    def test_protocol_configuration(self):
+        for protocol in ["auto", "generic", "tripplite"]:
+            CORE.reset()
+            self.assertEqual(HUB_SCHEMA({"id": "ups", "protocol": protocol})["protocol"], protocol)
+        self.assertFalse(HUB_SCHEMA({"id": "ups"})["diagnostic_dump"])
+        self.assertTrue(HUB_SCHEMA({"id": "ups", "diagnostic_dump": True})["diagnostic_dump"])
 
 
 if __name__ == "__main__":
