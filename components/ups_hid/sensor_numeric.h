@@ -1,5 +1,8 @@
 #pragma once
 
+#include "esphome/core/defines.h"
+#ifdef USE_SENSOR
+
 #include "esphome/core/component.h"
 #include "esphome/components/sensor/sensor.h"
 #include "ups_hid.h"
@@ -21,3 +24,4 @@ namespace esphome
 
   } // namespace ups_hid
 } // namespace esphome
+#endif  // USE_SENSOR
