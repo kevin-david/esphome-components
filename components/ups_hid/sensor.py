@@ -3,6 +3,9 @@ import esphome.config_validation as cv
 from esphome.components import sensor
 from esphome.const import (
     CONF_TYPE,
+    CONF_UNIT_OF_MEASUREMENT,
+    CONF_DEVICE_CLASS,
+    CONF_ACCURACY_DECIMALS,
     DEVICE_CLASS_BATTERY,
     DEVICE_CLASS_VOLTAGE,
     DEVICE_CLASS_POWER_FACTOR,
@@ -18,7 +21,7 @@ from esphome.const import (
 )
 
 
-from . import ups_hid_ns, UpsHidComponent, CONF_UPS_HID_ID
+from . import FILTER_SOURCE_FILES, ups_hid_ns, UpsHidComponent, CONF_UPS_HID_ID
 
 DEPENDENCIES = ["ups_hid"]
 
@@ -133,14 +136,25 @@ SENSOR_TYPES = {
 }
 
 
-CONFIG_SCHEMA = sensor.sensor_schema(
-    UpsHidSensor,
-    accuracy_decimals=1,
-).extend(
-    {
-        cv.GenerateID(CONF_UPS_HID_ID): cv.use_id(UpsHidComponent),
-        cv.Required(CONF_TYPE): cv.one_of(*SENSOR_TYPES, lower=True),
-    }
+def sensor_defaults(config):
+    """Apply per-type metadata before ESPHome generates its entity tables."""
+    defaults = SENSOR_TYPES[config[CONF_TYPE]]
+    for key, source in ((CONF_UNIT_OF_MEASUREMENT, "unit"),
+                        (CONF_DEVICE_CLASS, "device_class"),
+                        (CONF_ACCURACY_DECIMALS, "accuracy_decimals")):
+        if key not in config and source in defaults:
+            config[key] = defaults[source]
+    return config
+
+
+CONFIG_SCHEMA = cv.All(
+    sensor.sensor_schema(UpsHidSensor).extend(
+        {
+            cv.GenerateID(CONF_UPS_HID_ID): cv.use_id(UpsHidComponent),
+            cv.Required(CONF_TYPE): cv.one_of(*SENSOR_TYPES, lower=True),
+        }
+    ),
+    sensor_defaults,
 )
 
 
@@ -152,14 +166,3 @@ async def to_code(config):
     sensor_type = config[CONF_TYPE]
     cg.add(var.set_sensor_type(sensor_type))
     cg.add(parent.register_sensor(var, sensor_type))
-
-    # Apply sensor type specific configuration
-    if sensor_type in SENSOR_TYPES:
-        sensor_config = SENSOR_TYPES[sensor_type]
-
-        # Override config with sensor type defaults if not specified
-        if "unit_of_measurement" not in config and "unit" in sensor_config:
-            cg.add(var.set_unit_of_measurement(sensor_config["unit"]))
-
-        if "accuracy_decimals" not in config and "accuracy_decimals" in sensor_config:
-            cg.add(var.set_accuracy_decimals(sensor_config["accuracy_decimals"]))

@@ -2,6 +2,7 @@
 
 import esphome.codegen as cg
 import esphome.config_validation as cv
+from esphome.config_helpers import filter_source_files_from_defines
 from esphome.const import (
     CONF_ID,
     CONF_UPDATE_INTERVAL,
@@ -9,6 +10,13 @@ from esphome.const import (
 
 DEPENDENCIES = ["esp32"]
 MULTI_CONF = True
+FILTER_SOURCE_FILES = filter_source_files_from_defines({
+    "control_button.cpp": "USE_BUTTON", "control_button.h": "USE_BUTTON",
+    "control_number.cpp": "USE_NUMBER", "control_number.h": "USE_NUMBER",
+    "sensor_numeric.cpp": "USE_SENSOR", "sensor_numeric.h": "USE_SENSOR",
+    "sensor_binary.cpp": "USE_BINARY_SENSOR", "sensor_binary.h": "USE_BINARY_SENSOR",
+    "sensor_text.cpp": "USE_TEXT_SENSOR", "sensor_text.h": "USE_TEXT_SENSOR",
+})
 
 CONF_SIMULATION_MODE = "simulation_mode"
 CONF_USB_VENDOR_ID = "usb_vendor_id"

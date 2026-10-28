@@ -47,7 +47,7 @@ void UpsHidComponent::update() {
       consecutive_failures_ = 0;
     } else {
       consecutive_failures_++;
-      ESP_LOGW(TAG, log_messages::DETECTION_FAILED, consecutive_failures_);
+      ESP_LOGW(TAG, log_messages::DETECTION_FAILED, static_cast<unsigned int>(consecutive_failures_));
       
       if (consecutive_failures_ > max_consecutive_failures_) {
         ESP_LOGE(TAG, log_messages::TOO_MANY_FAILURES);
@@ -67,7 +67,7 @@ void UpsHidComponent::update() {
     check_and_update_timers();
   } else {
     consecutive_failures_++;
-    ESP_LOGW(TAG, log_messages::READ_FAILED, consecutive_failures_);
+    ESP_LOGW(TAG, log_messages::READ_FAILED, static_cast<unsigned int>(consecutive_failures_));
     
     if (consecutive_failures_ > max_consecutive_failures_) {
       ESP_LOGW(TAG, log_messages::RESETTING_PROTOCOL);
@@ -86,9 +86,9 @@ void UpsHidComponent::dump_config() {
     ESP_LOGCONFIG(TAG, "  USB Product ID: 0x%04X", transport_->get_product_id());
   }
   
-  ESP_LOGCONFIG(TAG, "  Protocol Timeout: %u ms", protocol_timeout_ms_);
+  ESP_LOGCONFIG(TAG, "  Protocol Timeout: %lu ms", static_cast<unsigned long>(protocol_timeout_ms_));
   ESP_LOGCONFIG(TAG, "  Protocol Selection: %s", protocol_selection_.c_str());
-  ESP_LOGCONFIG(TAG, "  Update Interval: %u ms", get_update_interval());
+  ESP_LOGCONFIG(TAG, "  Update Interval: %lu ms", static_cast<unsigned long>(get_update_interval()));
 
   if (transport_ && transport_->is_connected()) {
     ESP_LOGCONFIG(TAG, "  Status: %s", status::CONNECTED);
@@ -587,8 +587,9 @@ bool UpsHidComponent::should_log_error(ErrorRateLimit& limiter) {
 
 void UpsHidComponent::log_suppressed_errors(ErrorRateLimit& limiter) {
   if (limiter.suppressed_count > 0) {
-    ESP_LOGW(TAG, "Suppressed %u similar errors in the last %u ms", 
-             limiter.suppressed_count, ErrorRateLimit::RATE_LIMIT_MS);
+    ESP_LOGW(TAG, "Suppressed %lu similar errors in the last %lu ms",
+             static_cast<unsigned long>(limiter.suppressed_count),
+             static_cast<unsigned long>(ErrorRateLimit::RATE_LIMIT_MS));
     limiter.suppressed_count = 0;
   }
 }

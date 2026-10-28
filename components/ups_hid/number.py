@@ -9,7 +9,7 @@ from esphome.const import (
     UNIT_SECOND,
     ENTITY_CATEGORY_CONFIG,
 )
-from . import ups_hid_ns, UpsHidComponent, CONF_UPS_HID_ID
+from . import FILTER_SOURCE_FILES, ups_hid_ns, UpsHidComponent, CONF_UPS_HID_ID
 
 DEPENDENCIES = ["ups_hid"]
 

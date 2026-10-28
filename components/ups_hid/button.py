@@ -2,7 +2,7 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import button
 from esphome.const import CONF_ID
-from . import ups_hid_ns, CONF_UPS_HID_ID, UpsHidComponent
+from . import FILTER_SOURCE_FILES, ups_hid_ns, CONF_UPS_HID_ID, UpsHidComponent
 
 DEPENDENCIES = ["ups_hid"]
 
