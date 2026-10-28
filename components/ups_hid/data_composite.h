@@ -1,6 +1,7 @@
 #pragma once
 
 #include "data_battery.h"
+#include "data_hid_status.h"
 #include "data_power.h"
 #include "data_device.h"
 #include "data_test.h"
@@ -19,6 +20,7 @@ namespace ups_hid {
  */
 struct UpsCompositeData {
   // Specialized data components
+  HidStatus hid_status;
   BatteryData battery;
   PowerData power;
   DeviceInfo device;
@@ -37,6 +39,7 @@ struct UpsCompositeData {
   
   // Clean reset without legacy flags
   void reset() {
+    hid_status = HidStatus{};
     battery.reset();
     power.reset();
     device.reset();

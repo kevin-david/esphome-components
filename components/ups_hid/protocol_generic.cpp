@@ -39,7 +39,12 @@ static const uint8_t EXTENDED_REPORT_IDS[] = {
 // Report type constants for HID
 // HID report types are now defined in hid_constants.h
 
+bool GenericHidProtocol::is_tripp_lite_3024() const {
+  return parent_->get_vendor_id() == 0x09ae && parent_->get_product_id() == 0x3024;
+}
+
 bool GenericHidProtocol::detect() {
+  if (is_tripp_lite_3024()) return parent_->is_connected();
   ESP_LOGD(GEN_TAG, "Detecting Generic HID Protocol...");
   
   // Check device connection status first
@@ -101,6 +106,27 @@ bool GenericHidProtocol::detect() {
 }
 
 bool GenericHidProtocol::initialize() {
+  if (is_tripp_lite_3024()) {
+    std::vector<uint8_t> descriptor;
+    if (parent_->get_hid_report_descriptor(descriptor, parent_->get_protocol_timeout()) != ESP_OK) {
+      ESP_LOGE(GEN_TAG, "09AE:3024 HID descriptor unavailable; refusing report-ID guesses");
+      return false;
+    }
+    // Keep each line within UART logger buffers, including unsupported layouts.
+    for (size_t offset = 0; offset < descriptor.size(); offset += 16)
+      ESP_LOGVV(GEN_TAG, "HID descriptor [%04zu]: %s", offset,
+                format_hex_pretty(descriptor.data() + offset, std::min(size_t(16), descriptor.size() - offset)).c_str());
+    if (!tripplite_.descriptor.parse(descriptor.data(), descriptor.size())) {
+      ESP_LOGE(GEN_TAG, "09AE:3024 HID descriptor unsupported; refusing report-ID guesses");
+      return false;
+    }
+    ESP_LOGI(GEN_TAG, "09AE:3024 descriptor: %zu bytes, %zu fields", descriptor.size(), tripplite_.descriptor.fields.size());
+    for (const auto &f : tripplite_.descriptor.fields)
+      ESP_LOGD(GEN_TAG, "HID type=%u ID=0x%02X usage=0x%08lX bit=%u size=%u unit=0x%08lX exponent=%d",
+               unsigned(f.type), f.id, static_cast<unsigned long>(f.usage), f.offset, f.size,
+               static_cast<unsigned long>(f.unit), f.exponent);
+    return true;
+  }
   ESP_LOGD(GEN_TAG, "Initializing Generic HID Protocol...");
   
   // Clear any previous state
@@ -133,6 +159,17 @@ bool GenericHidProtocol::initialize() {
 }
 
 bool GenericHidProtocol::read_data(UpsData &data) {
+  if (is_tripp_lite_3024()) {
+    uint32_t started = millis();
+    uint32_t budget = parent_->get_protocol_timeout();
+    return tripplite_.read([this, started, budget](uint8_t type, uint8_t id, uint8_t *buffer, size_t *length) {
+      uint32_t elapsed = millis() - started;
+      if (elapsed >= budget) return false;
+      esp_err_t ret = parent_->hid_get_report(type, id, buffer, length, budget - elapsed);
+      if (ret != ESP_OK) ESP_LOGD(GEN_TAG, "GET_REPORT type=%u ID=0x%02X failed: %s", type, id, esp_err_to_name(ret));
+      return ret == ESP_OK;
+    }, data);
+  }
   ESP_LOGV(GEN_TAG, "Reading Generic HID UPS data...");
   
   bool success = false;
@@ -864,6 +901,7 @@ void GenericHidProtocol::parse_input_sensitivity(uint8_t *data, size_t len, UpsD
 // Generic HID test implementations (basic functionality for unknown devices)
 bool GenericHidProtocol::start_battery_test_quick()
 {
+  if (is_tripp_lite_3024()) return false;  // No descriptor-verified write support.
   ESP_LOGI(GEN_TAG, "Starting Generic HID quick battery test");
 
   // Try common test report IDs used by various UPS vendors
@@ -895,6 +933,7 @@ bool GenericHidProtocol::start_battery_test_quick()
 
 bool GenericHidProtocol::start_battery_test_deep()
 {
+  if (is_tripp_lite_3024()) return false;  // No descriptor-verified write support.
   ESP_LOGI(GEN_TAG, "Starting Generic HID deep battery test");
 
   // Try common test report IDs used by various UPS vendors
@@ -925,6 +964,7 @@ bool GenericHidProtocol::start_battery_test_deep()
 
 bool GenericHidProtocol::stop_battery_test()
 {
+  if (is_tripp_lite_3024()) return false;  // No descriptor-verified write support.
   ESP_LOGI(GEN_TAG, "Stopping Generic HID battery test");
 
   // Try common test report IDs used by various UPS vendors
@@ -955,6 +995,7 @@ bool GenericHidProtocol::stop_battery_test()
 
 bool GenericHidProtocol::start_ups_test()
 {
+  if (is_tripp_lite_3024()) return false;  // No descriptor-verified write support.
   ESP_LOGI(GEN_TAG, "Starting Generic HID UPS test");
 
   // Try common panel test report IDs (less standardized than battery test)
@@ -985,6 +1026,7 @@ bool GenericHidProtocol::start_ups_test()
 
 bool GenericHidProtocol::stop_ups_test()
 {
+  if (is_tripp_lite_3024()) return false;  // No descriptor-verified write support.
   ESP_LOGI(GEN_TAG, "Stopping Generic HID UPS test");
 
   // Try common panel test report IDs
@@ -1133,6 +1175,7 @@ float GenericHidProtocol::parse_frequency_from_report(uint8_t *data, size_t len)
 // Delay configuration methods
 bool GenericHidProtocol::set_shutdown_delay(int seconds)
 {
+  if (is_tripp_lite_3024()) return false;  // No descriptor-verified write support.
   ESP_LOGI(TAG, "Setting shutdown delay to %d seconds (Generic HID)", seconds);
 
   // Validate range (0-7200 seconds = 0-2 hours)
@@ -1178,6 +1221,7 @@ bool GenericHidProtocol::set_shutdown_delay(int seconds)
 
 bool GenericHidProtocol::set_start_delay(int seconds)
 {
+  if (is_tripp_lite_3024()) return false;  // No descriptor-verified write support.
   ESP_LOGI(TAG, "Setting start delay to %d seconds (Generic HID)", seconds);
 
   // Validate range (0-7200 seconds = 0-2 hours)
@@ -1222,6 +1266,7 @@ bool GenericHidProtocol::set_start_delay(int seconds)
 
 bool GenericHidProtocol::set_reboot_delay(int seconds)
 {
+  if (is_tripp_lite_3024()) return false;  // No descriptor-verified write support.
   ESP_LOGI(TAG, "Setting reboot delay to %d seconds (Generic HID)", seconds);
 
   // For generic HID, reboot typically involves setting both shutdown and start delays

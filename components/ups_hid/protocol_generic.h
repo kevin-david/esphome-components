@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ups_hid.h"
+#include "tripplite_3024.h"
 #include "data_composite.h"
 #include "data_device.h"
 #include <set>
@@ -78,6 +79,8 @@ public:
     bool beeper_test() override { return false; }
 
 private:
+    bool is_tripp_lite_3024() const;
+    Tripplite3024 tripplite_;
     // Report discovery state
     std::set<uint8_t> available_input_reports_;
     std::set<uint8_t> available_feature_reports_;

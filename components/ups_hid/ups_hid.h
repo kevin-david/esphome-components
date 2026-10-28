@@ -98,6 +98,7 @@ namespace esphome
       float get_fallback_nominal_voltage() const { return fallback_nominal_voltage_; }
       
       // Convenient state getters for lambda expressions (no sensor entities required)
+      bool has_power_status() const;
       bool is_online() const;
       bool is_on_battery() const;  
       bool is_low_battery() const;
@@ -153,6 +154,7 @@ namespace esphome
       float fallback_nominal_voltage_{230.0f};  // European standard (230V) for international compatibility
 
       bool connected_{false};
+      uint32_t transport_connection_id_{0};
       uint32_t last_successful_read_{0};
       uint32_t consecutive_failures_{0};
       uint32_t max_consecutive_failures_{5};  // Limit re-detection attempts
