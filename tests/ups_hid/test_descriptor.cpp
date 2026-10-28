@@ -2,6 +2,8 @@
 #include "../../components/ups_hid/state_helpers.h"
 #include <cassert>
 #include <iostream>
+#include <fstream>
+#include <sstream>
 #include <random>
 
 using namespace esphome::ups_hid;
@@ -149,12 +151,36 @@ void test_ids_are_not_semantics() {
   assert(decoder.descriptor.parse(f.bytes.data(), f.bytes.size()));
   UpsData d;
   assert(f.read(decoder,d) && d.power.status == status::ONLINE && d.battery.level == 94);
-  // Only the user's five captured reports: none contains status/capacity/runtime.
-  f.reports = {{0x301,{1,0x78}}, {0x306,{6,0x5f,0}}, {0x316,{0x16,0xff,0xff}},
-               {0x330,{0x30,0x78}}, {0x331,{0x31,0xb7,4}}};
+}
+
+void test_captured_reports_without_descriptor_evidence() {
+  Fixture f;
+  f.reports.clear();
+  std::ifstream capture("tests/ups_hid/fixtures/internet350u-mains-reports.txt");
+  assert(capture.is_open());
+  std::string line;
+  while (std::getline(capture,line)) {
+    if (line.empty() || line[0]=='#') continue;
+    std::istringstream row(line);
+    unsigned type, id, byte;
+    assert(row >> std::hex >> type >> id);
+    std::vector<uint8_t> payload;
+    while (row >> std::hex >> byte) { assert(byte<=255); payload.push_back(byte); }
+    assert(!payload.empty() && payload[0]==id);
+    assert(f.reports.emplace(uint16_t((type<<8)|id),payload).second);
+  }
+  assert(f.reports.size()==10);
+  // The real reports are paired with a SYNTHETIC related-layout descriptor.
+  // This is a regression against fabricated status, not target-layout validation.
+  Tripplite3024 decoder;
+  assert(decoder.descriptor.parse(f.bytes.data(), f.bytes.size()));
+  UpsData d;
   assert(f.read(decoder,d));
-  assert(d.power.status.empty() && !d.hid_status.low && std::isnan(d.battery.level));
-  assert(d.power.input_transfer_low == 95 && std::isnan(d.power.output_voltage));
+  assert(std::abs(d.power.input_voltage-120.7f)<0.01f);
+  assert(d.power.input_transfer_low==95 && d.power.input_voltage_nominal==120);
+  assert(d.power.status.empty() && !d.hid_status.low.has_value());
+  assert(std::isnan(d.battery.level) && std::isnan(d.battery.runtime_minutes));
+  assert(d.battery.status.empty() && std::isnan(d.power.output_voltage));
 }
 
 void test_parser_boundaries() {
@@ -240,6 +266,7 @@ void test_config_descriptor() {
 int main() {
   test_device_read(); test_ids_are_not_semantics(); test_parser_boundaries();
   test_input_fallback_and_invalid_identity(); test_units_and_duplicate_paths();
+  test_captured_reports_without_descriptor_evidence();
   test_status_unknown(); test_config_descriptor(); test_published_state_resolution();
   std::cout << "HID descriptor/decoder regression checks passed\n";
 }

@@ -1,0 +1,13 @@
+# Successful responses from ups-s3-mini-logs(1).txt, 2026-10-27 23:39:35.
+# Sanitized: USB type, report ID, response bytes only. No descriptor is present.
+# The five Input and five Feature responses cover the same five IDs.
+01 01 01 78
+01 06 06 5F 00
+01 16 16 FF FF
+01 30 30 78
+01 31 31 B7 04
+03 01 01 78
+03 06 06 5F 00
+03 16 16 FF FF
+03 30 30 78
+03 31 31 B7 04

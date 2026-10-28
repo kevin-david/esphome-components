@@ -41,6 +41,27 @@ is raw 1207. The NUT live-voltage correction yields 120.7V **input**, rather
 than an output measurement. The code requires the connected descriptor's
 usages and unit signature before making those assignments.
 
+## Target logs supplied after the initial review
+
+`ups-s3-mini-logs.txt` and `ups-s3-mini-logs(1).txt` capture the original driver
+on ESPHome 2026.10.1. They overlap; the longer file continues the same session
+through 23:41:05. They do not show the repaired firmware running.
+
+- At 23:39:35.432, `06 5F 00` immediately produces the logged battery alarms and 0% charge. This establishes the existing parser's producing mechanism directly.
+- Discovery returns five IDs as both Input and Feature reports, counts ten successful responses, and logs `Found 10 reports, skipping extended search` at 23:39:35.321. Ten responses do not establish ten independent measurements. The repaired device path does not use this discovery shortcut.
+- `0x32`, `0x34` and `0x35` are never requested. Their absence from these logs is not evidence that the UPS lacks them.
+- No HID report descriptor is present. The logs establish report bytes and the old driver's interpretation, not the fields' physical meanings.
+- `0x31` repeatedly returns `31 B7 04` and the old parser labels it output voltage. Its actual direction still requires descriptor evidence.
+- The initial operation logs a 534 ms duration warning with VERY_VERBOSE logging active. This single observation does not establish USB timeouts, instability or the new driver's performance.
+- `ups-s3-mini-install.txt` confirms a successful original firmware build/upload on ESP-IDF 5.5.6 and the integer format/unsigned-comparison warnings addressed by the compatibility commit.
+
+A sanitized fixture, `tests/ups_hid/fixtures/internet350u-mains-reports.txt`,
+contains the ten successful `(type, ID, bytes)` responses. A replay through the
+production decoder, paired explicitly with a **synthetic** related-layout
+descriptor, keeps power state, battery condition, charge, runtime and output
+voltage unknown. It does not claim target descriptor or hardware validation.
+Raw logs and network/device connection details are not included in the repository.
+
 ## Review findings and repairs
 
 1. **Critical — report IDs still treated as semantics.** The proposed decoder
