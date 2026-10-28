@@ -1,0 +1,103 @@
+# Complete UPS configuration for descriptor-based Tripp Lite 09AE:3024 devices.
+# Keep board, networking, API/OTA and any board LED in the device configuration.
+substitutions:
+  ups_name: UPS
+  ups_update_interval: 5s
+  ups_diagnostic_dump: "false"
+  ups_component_source: github://kevin-david/esphome-components@main
+
+packages:
+  extras: !include tripplite_extras.yaml
+
+external_components:
+  - source: ${ups_component_source}
+    refresh: 0s
+    components: [ups_hid]
+
+# Native USB is the host connection; send logs over UART0 instead.
+logger:
+  hardware_uart: UART0
+  level: INFO
+
+ups_hid:
+  id: ups_monitor
+  protocol: tripplite
+  update_interval: ${ups_update_interval}
+  diagnostic_dump: ${ups_diagnostic_dump}
+
+sensor:
+  - platform: ups_hid
+    ups_hid_id: ups_monitor
+    type: battery_level
+    name: "${ups_name} Battery"
+    state_class: measurement
+  - platform: ups_hid
+    ups_hid_id: ups_monitor
+    type: runtime
+    name: "${ups_name} Runtime"
+    state_class: measurement
+  - platform: ups_hid
+    ups_hid_id: ups_monitor
+    type: load_percent
+    name: "${ups_name} Load"
+    state_class: measurement
+  - platform: ups_hid
+    ups_hid_id: ups_monitor
+    type: input_voltage
+    name: "${ups_name} Input Voltage"
+    state_class: measurement
+  - platform: ups_hid
+    ups_hid_id: ups_monitor
+    type: output_voltage
+    name: "${ups_name} Output Voltage"
+    state_class: measurement
+  - platform: ups_hid
+    ups_hid_id: ups_monitor
+    type: output_power
+    name: "${ups_name} Output Power"
+    state_class: measurement
+  - platform: ups_hid
+    ups_hid_id: ups_monitor
+    type: battery_voltage
+    name: "${ups_name} Battery Voltage"
+    state_class: measurement
+  - platform: ups_hid
+    ups_hid_id: ups_monitor
+    type: battery_voltage_nominal
+    name: "${ups_name} Battery Nominal Voltage"
+    entity_category: diagnostic
+
+binary_sensor:
+  - platform: ups_hid
+    ups_hid_id: ups_monitor
+    type: online
+    name: "${ups_name} AC Present"
+    device_class: connectivity
+  - platform: ups_hid
+    ups_hid_id: ups_monitor
+    type: on_battery
+    name: "${ups_name} On Battery"
+  - platform: ups_hid
+    ups_hid_id: ups_monitor
+    type: low_battery
+    name: "${ups_name} Low Battery"
+    device_class: battery
+  - platform: ups_hid
+    ups_hid_id: ups_monitor
+    type: charging
+    name: "${ups_name} Charging"
+  - platform: ups_hid
+    ups_hid_id: ups_monitor
+    type: fault
+    name: "${ups_name} Fault"
+    device_class: problem
+
+text_sensor:
+  - platform: ups_hid
+    ups_hid_id: ups_monitor
+    type: status
+    name: "${ups_name} Status"
+  - platform: ups_hid
+    ups_hid_id: ups_monitor
+    type: battery_status
+    name: "${ups_name} Battery Status"

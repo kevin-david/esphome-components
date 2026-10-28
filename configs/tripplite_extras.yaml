@@ -1,0 +1,65 @@
+# Optional package for the descriptor-based 09AE:3024 driver (hub: ups_monitor).
+substitutions:
+  ups_name: UPS
+
+packages:
+  diagnostics: !include tripplite_diagnostics.yaml
+text_sensor:
+  - platform: ups_hid
+    ups_hid_id: ups_monitor
+    type: ups_beeper_status
+    id: ups_beeper_status
+    name: "${ups_name} Beeper Status"
+    entity_category: diagnostic
+  - platform: ups_hid
+    ups_hid_id: ups_monitor
+    type: ups_test_result
+    name: "${ups_name} Self Test Result"
+    entity_category: diagnostic
+  - platform: ups_hid
+    ups_hid_id: ups_monitor
+    type: firmware_version
+    name: "${ups_name} Firmware Version Raw"
+    entity_category: diagnostic
+  - platform: ups_hid
+    ups_hid_id: ups_monitor
+    type: ups_firmware_aux
+    name: "${ups_name} Protocol Version Raw"
+    entity_category: diagnostic
+select:
+  - platform: template
+    name: "${ups_name} Beeper Mode"
+    entity_category: config
+    icon: mdi:volume-high
+    options:
+      - Disabled
+      - Enabled
+      - Muted
+    optimistic: false
+    # Check cached device readback; this does not add USB polls.
+    update_interval: 1s
+    lambda: |-
+      const auto &mode = id(ups_beeper_status).state;
+      if (mode == "disabled") return std::string("Disabled");
+      if (mode == "enabled") return std::string("Enabled");
+      if (mode == "muted") return std::string("Muted");
+      return {};  // Status text shows Unknown; retain the last known option.
+    set_action:
+      - lambda: |-
+          bool sent = false;
+          if (x == "Disabled") sent = id(ups_monitor).beeper_disable();
+          else if (x == "Enabled") sent = id(ups_monitor).beeper_enable();
+          else if (x == "Muted") sent = id(ups_monitor).beeper_mute();
+          if (!sent)
+            ESP_LOGW("ups_hid", "Could not set UPS beeper mode; check device readback");
+button:
+  - platform: ups_hid
+    ups_hid_id: ups_monitor
+    test_action: battery_quick
+    name: "${ups_name} Quick Battery Test"
+    entity_category: diagnostic
+  - platform: ups_hid
+    ups_hid_id: ups_monitor
+    test_action: battery_stop
+    name: "${ups_name} Cancel Battery Test"
+    entity_category: diagnostic
