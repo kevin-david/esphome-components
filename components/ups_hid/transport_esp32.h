@@ -33,6 +33,7 @@ public:
     bool is_connected() const override;
     uint16_t get_vendor_id() const override;
     uint16_t get_product_id() const override;
+    uint32_t connection_id() const override { return connection_id_.load(); }
     
     esp_err_t hid_get_report(uint8_t report_type, uint8_t report_id, 
                            uint8_t* data, size_t* data_len, 
@@ -42,6 +43,8 @@ public:
                            const uint8_t* data, size_t data_len,
                            uint32_t timeout_ms = 1000) override;
     
+    esp_err_t get_hid_report_descriptor(std::vector<uint8_t>& descriptor, uint32_t timeout_ms) override;
+
     esp_err_t get_string_descriptor(uint8_t string_index, 
                                   std::string& result) override;
     
@@ -66,8 +69,14 @@ private:
     UsbDevice device_;
     mutable std::mutex device_mutex_;
     std::atomic<bool> connected_{false};
+    std::atomic<uint32_t> connection_id_{0};
     std::atomic<bool> initialized_{false};
     
+    // A timed-out read remains owned until USB completes it; bound in-flight reads.
+    std::shared_ptr<std::atomic<bool>> read_pending_{std::make_shared<std::atomic<bool>>(false)};
+    esp_err_t control_read(uint8_t request_type, uint8_t request, uint16_t value, uint16_t index,
+                           uint8_t* data, size_t* length, uint32_t timeout_ms);
+
     // USB Host Library management
     TaskHandle_t usb_lib_task_handle_{nullptr};
     TaskHandle_t usb_client_task_handle_{nullptr};

@@ -132,6 +132,11 @@ esp_err_t UpsHidComponent::hid_set_report(uint8_t report_type, uint8_t report_id
   return transport_->hid_set_report(report_type, report_id, data, data_len, timeout_ms);
 }
 
+esp_err_t UpsHidComponent::get_hid_report_descriptor(std::vector<uint8_t>& descriptor, uint32_t timeout_ms) {
+  descriptor.clear();
+  return transport_ ? transport_->get_hid_report_descriptor(descriptor, timeout_ms) : ESP_ERR_INVALID_STATE;
+}
+
 esp_err_t UpsHidComponent::get_string_descriptor(uint8_t string_index, std::string& result) {
   if (!transport_) {
     return ESP_ERR_INVALID_STATE;
