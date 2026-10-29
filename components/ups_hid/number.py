@@ -46,7 +46,7 @@ async def to_code(config):
         max_value=config["max_value"],
         step=config["step"],
     )
-    
+
     ups_hid = await cg.get_variable(config[CONF_UPS_HID_ID])
     cg.add(var.set_parent(ups_hid))
     cg.add(var.set_delay_type(config[CONF_DELAY_TYPE]))

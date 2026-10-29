@@ -8,16 +8,20 @@ from esphome.const import (
     CONF_ACCURACY_DECIMALS,
     DEVICE_CLASS_BATTERY,
     DEVICE_CLASS_VOLTAGE,
-    DEVICE_CLASS_POWER_FACTOR,
     DEVICE_CLASS_DURATION,
     DEVICE_CLASS_POWER,
     DEVICE_CLASS_EMPTY,
+    DEVICE_CLASS_FREQUENCY,
+    DEVICE_CLASS_CURRENT,
+    DEVICE_CLASS_APPARENT_POWER,
     UNIT_PERCENT,
     UNIT_VOLT,
     UNIT_MINUTE,
     UNIT_HERTZ,
     UNIT_WATT,
     UNIT_SECOND,
+    UNIT_AMPERE,
+    UNIT_VOLT_AMPS,
 )
 
 
@@ -43,9 +47,14 @@ SENSOR_TYPES = {
         "device_class": DEVICE_CLASS_VOLTAGE,
         "accuracy_decimals": 1,
     },
+    "output_power": {
+        "unit": UNIT_WATT,
+        "device_class": DEVICE_CLASS_POWER,
+        "accuracy_decimals": 1,
+    },
     "load_percent": {
         "unit": UNIT_PERCENT,
-        "device_class": DEVICE_CLASS_POWER_FACTOR,
+        "device_class": DEVICE_CLASS_EMPTY,
         "accuracy_decimals": 0,
     },
     "runtime": {
@@ -55,7 +64,38 @@ SENSOR_TYPES = {
     },
     "frequency": {
         "unit": UNIT_HERTZ,
+        "device_class": DEVICE_CLASS_FREQUENCY,
         "accuracy_decimals": 1,
+    },
+    "output_frequency": {
+        "unit": UNIT_HERTZ,
+        "device_class": DEVICE_CLASS_FREQUENCY,
+        "accuracy_decimals": 1,
+    },
+    "output_frequency_nominal": {
+        "unit": UNIT_HERTZ,
+        "device_class": DEVICE_CLASS_FREQUENCY,
+        "accuracy_decimals": 0,
+    },
+    "output_current": {
+        "unit": UNIT_AMPERE,
+        "device_class": DEVICE_CLASS_CURRENT,
+        "accuracy_decimals": 1,
+    },
+    "output_voltage_nominal": {
+        "unit": UNIT_VOLT,
+        "device_class": DEVICE_CLASS_VOLTAGE,
+        "accuracy_decimals": 0,
+    },
+    "ups_apparent_power_nominal": {
+        "unit": UNIT_VOLT_AMPS,
+        "device_class": DEVICE_CLASS_APPARENT_POWER,
+        "accuracy_decimals": 0,
+    },
+    "ups_watchdog": {
+        "unit": UNIT_SECOND,
+        "device_class": DEVICE_CLASS_DURATION,
+        "accuracy_decimals": 0,
     },
     "battery_voltage": {
         "unit": UNIT_VOLT,
@@ -139,9 +179,11 @@ SENSOR_TYPES = {
 def sensor_defaults(config):
     """Apply per-type metadata before ESPHome generates its entity tables."""
     defaults = SENSOR_TYPES[config[CONF_TYPE]]
-    for key, source in ((CONF_UNIT_OF_MEASUREMENT, "unit"),
-                        (CONF_DEVICE_CLASS, "device_class"),
-                        (CONF_ACCURACY_DECIMALS, "accuracy_decimals")):
+    for key, source in (
+        (CONF_UNIT_OF_MEASUREMENT, "unit"),
+        (CONF_DEVICE_CLASS, "device_class"),
+        (CONF_ACCURACY_DECIMALS, "accuracy_decimals"),
+    ):
         if key not in config and source in defaults:
             config[key] = defaults[source]
     return config
