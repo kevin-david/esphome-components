@@ -37,7 +37,7 @@ struct HidStatus {
         over_temperature.value_or(false) || overload.value_or(false)) {
       return true;
     }
-    if (internal_failure && shutdown_imminent) {
+    if (internal_failure && shutdown_imminent && converter_failure && over_temperature && overload) {
       return false;
     }
     return {};

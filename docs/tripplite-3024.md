@@ -76,8 +76,12 @@ uses the descriptor's physical range to convert minutes to seconds. Watchdog
 Online/On Battery follow AC availability. A self-test can report AC present and
 Discharging together. Overload uses the device flag. Fault includes summary
 internal failure/shutdown imminent and converter failure/overload/overtemperature.
+Any positive fault flag reports a fault. A clear fault state requires all five
+flags; a missing or unreadable flag leaves the state unknown.
 Missing readings clear numeric/binary state; text becomes Unknown. Bool lambda
-getters return false when unknown, so check `has_power_status()` first.
+getters return false when unknown. `has_power_status()` checks AC-state
+availability only; unknown-aware fault consumers can inspect
+`get_ups_data().hid_status.fault()` instead of the bool `has_fault()` getter.
 
 The decoder uses descriptor paths, types, lengths, bit offsets, signedness,
 units and physical ranges. NUT's known 3024 voltage/frequency/current scaling
@@ -92,7 +96,7 @@ USB IDs retain their existing protocol selection.
 
 ## Controls and confirmed beeper behavior
 
-The extras package supplies a Beeper Mode dropdown (Disabled / Enabled / Muted),
+The package supplies a Beeper Mode dropdown (Disabled / Enabled / Muted),
 quick-test/cancel buttons and text for mode, test result and raw firmware/protocol
 values. The dropdown follows cached device readback every second without extra
 USB requests. It sends no command at startup and never publishes a requested

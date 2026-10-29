@@ -287,6 +287,31 @@ void test_hardware_descriptor() {
   assert(reports.read(decoder, d) && d.power.status == status::ON_BATTERY);
 }
 
+void test_fault_report_completeness() {
+  Tripplite3024 decoder;
+  auto bytes = hardware_descriptor_bytes();
+  assert(decoder.descriptor.parse(bytes.data(), bytes.size()));
+  Fixture reports;
+  reports.reports[0x322] = {0x22, 0, 0};
+  UpsData d;
+  assert(reports.read(decoder, d) && binary_state(d, "fault") == false);
+
+  reports.reports.erase(0x322);
+  assert(reports.read(decoder, d));
+  assert(d.hid_status.internal_failure == false && d.hid_status.shutdown_imminent == false);
+  assert(!binary_state(d, "fault").has_value());
+
+  reports.reports[0x322] = {0x22, 0};
+  assert(reports.read(decoder, d) && !binary_state(d, "fault").has_value());
+  reports.reports[0x322] = {0x22, 0xd5, 0x40};
+  assert(reports.read(decoder, d) && binary_state(d, "fault") == true);
+
+  reports.reports.erase(0x332);
+  assert(reports.read(decoder, d) && binary_state(d, "fault") == true);
+  reports.reports[0x322] = {0x22, 0, 0};
+  assert(reports.read(decoder, d) && !binary_state(d, "fault").has_value());
+}
+
 void test_descriptor_commands_and_diagnostics() {
   Tripplite3024 decoder;
   auto bytes = hardware_descriptor_bytes();
@@ -506,6 +531,10 @@ void test_status_unknown() {
   assert(!s.online().has_value());
   s.internal_failure = false;
   s.shutdown_imminent = false;
+  assert(!s.fault().has_value());
+  s.converter_failure = false;
+  s.over_temperature = false;
+  s.overload = false;
   assert(s.fault() == false);
   s.shutdown_imminent = true;
   assert(s.fault() == true);
@@ -699,6 +728,7 @@ int main() {
   test_input_fallback_and_invalid_identity();
   test_units_and_duplicate_paths();
   test_hardware_descriptor();
+  test_fault_report_completeness();
   test_output_power_units_and_paths();
   test_descriptor_commands_and_diagnostics();
   test_captured_self_test_and_beeper();
