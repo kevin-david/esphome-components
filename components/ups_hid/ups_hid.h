@@ -89,13 +89,15 @@ namespace esphome
       void set_diagnostic_dump(bool value) { diagnostic_dump_ = value; }
       uint32_t get_usb_connection_id() const { return transport_ ? transport_->connection_id() : 0; }
       bool take_diagnostic_dump(uint32_t connection) {
-        if (!diagnostic_dump_ || !connection || connection!=get_usb_connection_id() ||
-            connection==diagnostic_connection_id_) return false;
-        diagnostic_connection_id_=connection;
+        if (!diagnostic_dump_ || !connection || connection != get_usb_connection_id() ||
+            connection == diagnostic_connection_id_) {
+          return false;
+        }
+        diagnostic_connection_id_ = connection;
         return true;
       }
       void request_control_refresh() {
-        set_timeout("tripplite_control_refresh",250,[this]() { update(); });
+        set_timeout("tripplite_control_refresh", 250, [this]() { update(); });
       }
       void set_fallback_nominal_voltage(float voltage) { fallback_nominal_voltage_ = voltage; }
 

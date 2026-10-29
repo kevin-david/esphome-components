@@ -47,7 +47,9 @@ void UpsHidComponent::update() {
       }
     }
     active_protocol_.reset();
-    if (descriptor_based) update_sensors();
+    if (descriptor_based) {
+      update_sensors();
+    }
     // Device not connected yet - normal during startup or after disconnection
     ESP_LOGD(TAG, log_messages::WAITING_FOR_DEVICE);
     return;
@@ -59,13 +61,13 @@ void UpsHidComponent::update() {
     {
       std::lock_guard<std::mutex> lock(data_mutex_);
       bool descriptor_based = ups_data_.hid_status.descriptor_based ||
-          Tripplite3024::matches(transport_->get_vendor_id(), transport_->get_product_id());
+                              Tripplite3024::matches(transport_->get_vendor_id(), transport_->get_product_id());
       ups_data_.reset();
       ups_data_.hid_status.descriptor_based = descriptor_based;
     }
     update_sensors();
   }
-  
+
   // Check if protocol detection is needed
   if (!active_protocol_) {
     ESP_LOGI(TAG, log_messages::ATTEMPTING_DETECTION);
@@ -75,7 +77,7 @@ void UpsHidComponent::update() {
     } else {
       consecutive_failures_++;
       ESP_LOGW(TAG, log_messages::DETECTION_FAILED, static_cast<unsigned int>(consecutive_failures_));
-      
+
       if (consecutive_failures_ > max_consecutive_failures_) {
         ESP_LOGE(TAG, log_messages::TOO_MANY_FAILURES);
         mark_failed();
@@ -94,10 +96,12 @@ void UpsHidComponent::update() {
     check_and_update_timers();
   } else {
     // Publish missing values as unknown on a failed descriptor-based cycle too.
-    if (get_ups_data().hid_status.descriptor_based) update_sensors();
+    if (get_ups_data().hid_status.descriptor_based) {
+      update_sensors();
+    }
     consecutive_failures_++;
     ESP_LOGW(TAG, log_messages::READ_FAILED, static_cast<unsigned int>(consecutive_failures_));
-    
+
     if (consecutive_failures_ > max_consecutive_failures_) {
       ESP_LOGW(TAG, log_messages::RESETTING_PROTOCOL);
       active_protocol_.reset();  // Force protocol re-detection on next update
@@ -114,7 +118,7 @@ void UpsHidComponent::dump_config() {
     ESP_LOGCONFIG(TAG, "  USB Vendor ID: 0x%04X", transport_->get_vendor_id());
     ESP_LOGCONFIG(TAG, "  USB Product ID: 0x%04X", transport_->get_product_id());
   }
-  
+
   ESP_LOGCONFIG(TAG, "  Protocol Timeout: %lu ms", static_cast<unsigned long>(protocol_timeout_ms_));
   ESP_LOGCONFIG(TAG, "  Protocol Selection: %s", protocol_selection_.c_str());
   ESP_LOGCONFIG(TAG, "  Update Interval: %lu ms", static_cast<unsigned long>(get_update_interval()));
@@ -152,16 +156,15 @@ esp_err_t UpsHidComponent::hid_get_report(uint8_t report_type, uint8_t report_id
   return transport_->hid_get_report(report_type, report_id, data, data_len, timeout_ms);
 }
 
-esp_err_t UpsHidComponent::hid_set_report(uint8_t report_type, uint8_t report_id,
-                                         const uint8_t* data, size_t data_len,
-                                         uint32_t timeout_ms, uint32_t expected_connection) {
+esp_err_t UpsHidComponent::hid_set_report(uint8_t report_type, uint8_t report_id, const uint8_t *data, size_t data_len,
+                                          uint32_t timeout_ms, uint32_t expected_connection) {
   if (!transport_) {
     return ESP_ERR_INVALID_STATE;
   }
   return transport_->hid_set_report(report_type, report_id, data, data_len, timeout_ms, expected_connection);
 }
 
-esp_err_t UpsHidComponent::get_hid_report_descriptor(std::vector<uint8_t>& descriptor, uint32_t timeout_ms) {
+esp_err_t UpsHidComponent::get_hid_report_descriptor(std::vector<uint8_t> &descriptor, uint32_t timeout_ms) {
   descriptor.clear();
   return transport_ ? transport_->get_hid_report_descriptor(descriptor, timeout_ms) : ESP_ERR_INVALID_STATE;
 }
@@ -286,7 +289,7 @@ bool UpsHidComponent::read_ups_data() {
     ups_data_.hid_status.descriptor_based = descriptor_based;
     return false;
   }
-  
+
   if (success) {
     ESP_LOGV(TAG, "Successfully read UPS data");
   } else {
@@ -299,7 +302,7 @@ bool UpsHidComponent::read_ups_data() {
 void UpsHidComponent::update_sensors() {
   // Publishing can synchronously invoke lambdas that read this component.
   const UpsData ups_data_ = this->get_ups_data();
-  
+
   // Check if any sensors are registered - if not, skip sensor updates
   size_t total_sensors = 0;
 #ifdef USE_SENSOR
@@ -379,10 +382,12 @@ void UpsHidComponent::update_sensors() {
       value = ups_data_.config.delay_reboot;
     } else if (type == sensor_type::UPS_TIMER_REBOOT || type == sensor_type::UPS_TIMER_SHUTDOWN ||
                type == sensor_type::UPS_TIMER_START || type == sensor_type::UPS_WATCHDOG) {
-      auto seconds=timer_state(ups_data_,type);
-      if (seconds) value=*seconds;
+      auto seconds = timer_state(ups_data_, type);
+      if (seconds) {
+        value = *seconds;
+      }
     }
-    
+
     if (!std::isnan(value) || ups_data_.hid_status.descriptor_based) {
       sensor->publish_state(value);
     }
@@ -394,10 +399,13 @@ void UpsHidComponent::update_sensors() {
   for (auto& sensor_pair : binary_sensors_) {
     const std::string& type = sensor_pair.first;
     binary_sensor::BinarySensor* sensor = sensor_pair.second;
-    
+
     auto state = binary_state(ups_data_, type);
-    if (state) sensor->publish_state(*state);
-    else sensor->invalidate_state();
+    if (state) {
+      sensor->publish_state(*state);
+    } else {
+      sensor->invalidate_state();
+    }
   }
 #endif
   
@@ -438,8 +446,10 @@ void UpsHidComponent::update_sensors() {
     } else if (type == text_sensor_type::UPS_FIRMWARE_AUX && !ups_data_.device.firmware_aux.empty()) {
       value = ups_data_.device.firmware_aux;
     }
-    
-    if (ups_data_.hid_status.descriptor_based && value.empty()) value = "Unknown";
+
+    if (ups_data_.hid_status.descriptor_based && value.empty()) {
+      value = "Unknown";
+    }
     if (!value.empty()) {
       sensor->publish_state(value);
     }
@@ -754,7 +764,7 @@ bool UpsHidComponent::has_fault() const {
 
 bool UpsHidComponent::is_overloaded() const {
   std::lock_guard<std::mutex> lock(data_mutex_);
-  return binary_state(ups_data_,binary_sensor_type::OVERLOAD).value_or(false);
+  return binary_state(ups_data_, binary_sensor_type::OVERLOAD).value_or(false);
 }
 
 float UpsHidComponent::get_battery_level() const {

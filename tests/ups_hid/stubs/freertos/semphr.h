@@ -1,7 +1,9 @@
 #pragma once
 #include <cstdint>
-struct TestSemaphore { bool signaled=false; };
-using SemaphoreHandle_t = TestSemaphore*;
+struct TestSemaphore {
+  bool signaled = false;
+};
+using SemaphoreHandle_t = TestSemaphore *;
 SemaphoreHandle_t xSemaphoreCreateBinary();
 void vSemaphoreDelete(SemaphoreHandle_t sem);
 void xSemaphoreGive(SemaphoreHandle_t sem);

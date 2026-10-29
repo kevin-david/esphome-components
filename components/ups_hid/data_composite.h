@@ -23,15 +23,23 @@ struct HidStatus {
 
   std::optional<bool> online() const {
     // A self-test can discharge the battery while AC remains present.
-    if (ac_present && *ac_present) return true;
-    if (discharging && *discharging) return false;
+    if (ac_present && *ac_present) {
+      return true;
+    }
+    if (discharging && *discharging) {
+      return false;
+    }
     return {};
   }
 
   std::optional<bool> fault() const {
-    if (internal_failure.value_or(false) || shutdown_imminent.value_or(false) ||
-        converter_failure.value_or(false) || over_temperature.value_or(false) || overload.value_or(false)) return true;
-    if (internal_failure && shutdown_imminent) return false;
+    if (internal_failure.value_or(false) || shutdown_imminent.value_or(false) || converter_failure.value_or(false) ||
+        over_temperature.value_or(false) || overload.value_or(false)) {
+      return true;
+    }
+    if (internal_failure && shutdown_imminent) {
+      return false;
+    }
     return {};
   }
 };

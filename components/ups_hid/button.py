@@ -55,7 +55,7 @@ async def to_code(config):
 
     parent = await cg.get_variable(config[CONF_UPS_HID_ID])
     cg.add(var.set_ups_hid_parent(parent))
-    
+
     # Set action based on which type was configured
     if CONF_BEEPER_ACTION in config:
         cg.add(var.set_beeper_action(config[CONF_BEEPER_ACTION]))

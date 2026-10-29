@@ -90,18 +90,21 @@ uint16_t Esp32UsbTransport::get_product_id() const {
     return device_.product_id;
 }
 
-esp_err_t Esp32UsbTransport::control_transfer(uint8_t request_type, uint8_t request,
-                                           uint16_t value, uint16_t index, uint8_t* input,
-                                           size_t* length, uint32_t timeout_ms, const uint8_t* output, uint32_t expected_connection) {
+esp_err_t Esp32UsbTransport::control_transfer(uint8_t request_type, uint8_t request, uint16_t value, uint16_t index,
+                                              uint8_t *input, size_t *length, uint32_t timeout_ms,
+                                              const uint8_t *output, uint32_t expected_connection) {
     size_t packet_size;
     uint32_t connection;
     {
         std::lock_guard<std::mutex> lock(device_mutex_);
-        if (!connected_ || !device_.dev_hdl ||
-            (expected_connection && connection_id_ != expected_connection)) return ESP_ERR_INVALID_STATE;
-        const usb_device_desc_t* descriptor = nullptr;
+        if (!connected_ || !device_.dev_hdl || (expected_connection && connection_id_ != expected_connection)) {
+            return ESP_ERR_INVALID_STATE;
+        }
+        const usb_device_desc_t *descriptor = nullptr;
         esp_err_t ret = usb_host_get_device_descriptor(device_.dev_hdl, &descriptor);
-        if (ret != ESP_OK) return ret;
+        if (ret != ESP_OK) {
+            return ret;
+        }
         connection = connection_id_;
         packet_size = descriptor->bMaxPacketSize0;
     }
@@ -111,24 +114,28 @@ esp_err_t Esp32UsbTransport::control_transfer(uint8_t request_type, uint8_t requ
     setup.wValue = value;
     setup.wIndex = index;
     return usb_control_transfer(setup, packet_size, input, output, length, timeout_ms, control_pending_,
-        [this, connection](usb_transfer_t* transfer) {
-            std::lock_guard<std::mutex> lock(device_mutex_);
-            if (!connected_ || !device_.dev_hdl || connection_id_ != connection) return ESP_ERR_INVALID_STATE;
-            transfer->device_handle = device_.dev_hdl;
-            return usb_host_transfer_submit_control(device_.client_hdl, transfer);
-        });
+                                [this, connection](usb_transfer_t *transfer) {
+                                    std::lock_guard<std::mutex> lock(device_mutex_);
+                                    if (!connected_ || !device_.dev_hdl || connection_id_ != connection) {
+                                        return ESP_ERR_INVALID_STATE;
+                                    }
+                                    transfer->device_handle = device_.dev_hdl;
+                                    return usb_host_transfer_submit_control(device_.client_hdl, transfer);
+                                });
 }
 
-esp_err_t Esp32UsbTransport::hid_get_report(uint8_t report_type, uint8_t report_id,
-                                           uint8_t* data, size_t* data_len, uint32_t timeout_ms) {
-    if (!data_len || *data_len > hid_power::MAX_REPORT_SIZE) return ESP_ERR_INVALID_ARG;
+esp_err_t Esp32UsbTransport::hid_get_report(uint8_t report_type, uint8_t report_id, uint8_t *data, size_t *data_len,
+                                            uint32_t timeout_ms) {
+    if (!data_len || *data_len > hid_power::MAX_REPORT_SIZE) {
+        return ESP_ERR_INVALID_ARG;
+    }
     uint8_t interface_number;
     {
         std::lock_guard<std::mutex> lock(device_mutex_);
         interface_number = device_.interface_num;
     }
-    esp_err_t ret = control_transfer(0xa1, 0x01, (uint16_t(report_type) << 8) | report_id,
-                                interface_number, data, data_len, timeout_ms);
+    esp_err_t ret = control_transfer(0xa1, 0x01, (uint16_t(report_type) << 8) | report_id, interface_number, data,
+                                     data_len, timeout_ms);
     if (ret == ESP_OK) {
         ESP_LOGV(ESP32_USB_TAG, "GET_REPORT type=%u ID=0x%02X length=%zu", report_type, report_id, *data_len);
         ESP_LOGVV(ESP32_USB_TAG, "Raw report: %s", format_hex_pretty(data, *data_len).c_str());
@@ -136,26 +143,32 @@ esp_err_t Esp32UsbTransport::hid_get_report(uint8_t report_type, uint8_t report_
     return ret;
 }
 
-esp_err_t Esp32UsbTransport::get_hid_report_descriptor(std::vector<uint8_t>& descriptor, uint32_t timeout_ms) {
+esp_err_t Esp32UsbTransport::get_hid_report_descriptor(std::vector<uint8_t> &descriptor, uint32_t timeout_ms) {
     descriptor.clear();
     size_t length;
     uint8_t interface_number;
     {
         std::lock_guard<std::mutex> lock(device_mutex_);
-        if (!connected_ || !device_.dev_hdl) return ESP_ERR_INVALID_STATE;
-        const usb_config_desc_t* config = nullptr;
+        if (!connected_ || !device_.dev_hdl) {
+            return ESP_ERR_INVALID_STATE;
+        }
+        const usb_config_desc_t *config = nullptr;
         esp_err_t ret = usb_host_get_active_config_descriptor(device_.dev_hdl, &config);
-        if (ret != ESP_OK) return ret;
+        if (ret != ESP_OK) {
+            return ret;
+        }
         interface_number = device_.interface_num;
-        length = hid_power::report_descriptor_length(reinterpret_cast<const uint8_t*>(config),
-                                                      config->wTotalLength, interface_number);
+        length = hid_power::report_descriptor_length(reinterpret_cast<const uint8_t *>(config), config->wTotalLength,
+                                                     interface_number);
     }
-    if (!length) return ESP_ERR_NOT_SUPPORTED;
+    if (!length) {
+        return ESP_ERR_NOT_SUPPORTED;
+    }
     descriptor.resize(length);
     size_t actual = length;
     // Standard interface GET_DESCRIPTOR(Report), not class GET_REPORT.
-    esp_err_t ret = control_transfer(0x81, USB_B_REQUEST_GET_DESCRIPTOR, 0x2200, interface_number,
-                                descriptor.data(), &actual, timeout_ms);
+    esp_err_t ret = control_transfer(0x81, USB_B_REQUEST_GET_DESCRIPTOR, 0x2200, interface_number, descriptor.data(),
+                                     &actual, timeout_ms);
     if (ret != ESP_OK || actual != length) {
         descriptor.clear();
         return ret != ESP_OK ? ret : ESP_ERR_INVALID_SIZE;
@@ -163,23 +176,25 @@ esp_err_t Esp32UsbTransport::get_hid_report_descriptor(std::vector<uint8_t>& des
     return ESP_OK;
 }
 
-esp_err_t Esp32UsbTransport::hid_set_report(uint8_t report_type, uint8_t report_id,
-                                           const uint8_t* data, size_t data_len,
-                                           uint32_t timeout_ms, uint32_t expected_connection) {
-    if (!data || !data_len || data_len > hid_power::MAX_REPORT_SIZE) return ESP_ERR_INVALID_ARG;
+esp_err_t Esp32UsbTransport::hid_set_report(uint8_t report_type, uint8_t report_id, const uint8_t *data,
+                                            size_t data_len, uint32_t timeout_ms, uint32_t expected_connection) {
+    if (!data || !data_len || data_len > hid_power::MAX_REPORT_SIZE) {
+        return ESP_ERR_INVALID_ARG;
+    }
     uint8_t interface_number;
     {
         std::lock_guard<std::mutex> lock(device_mutex_);
         interface_number = device_.interface_num;
     }
     size_t actual = data_len;
-    ESP_LOGVV(ESP32_USB_TAG,"SET_REPORT type=%u ID=0x%02X payload=%s",report_type,report_id,
-              format_hex_pretty(data,data_len).c_str());
-    esp_err_t ret = control_transfer(0x21, 0x09, (uint16_t(report_type) << 8) | report_id,
-                                    interface_number, nullptr, &actual, timeout_ms, data, expected_connection);
-    ESP_LOGD(ESP32_USB_TAG,"SET_REPORT type=%u ID=0x%02X result=%s",report_type,report_id,esp_err_to_name(ret));
-    if (ret == ESP_ERR_TIMEOUT)
+    ESP_LOGVV(ESP32_USB_TAG, "SET_REPORT type=%u ID=0x%02X payload=%s", report_type, report_id,
+              format_hex_pretty(data, data_len).c_str());
+    esp_err_t ret = control_transfer(0x21, 0x09, (uint16_t(report_type) << 8) | report_id, interface_number, nullptr,
+                                     &actual, timeout_ms, data, expected_connection);
+    ESP_LOGD(ESP32_USB_TAG, "SET_REPORT type=%u ID=0x%02X result=%s", report_type, report_id, esp_err_to_name(ret));
+    if (ret == ESP_ERR_TIMEOUT) {
         ESP_LOGW(ESP32_USB_TAG, "SET_REPORT ID=0x%02X timed out; command outcome unknown, not retried", report_id);
+    }
     return ret;
 }
 
@@ -727,4 +742,4 @@ void Esp32UsbTransport::usb_client_task(void* arg) {
 } // namespace ups_hid
 } // namespace esphome
 
-#endif // USE_ESP32
+#endif  // USE_ESP32

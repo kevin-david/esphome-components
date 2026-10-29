@@ -179,9 +179,11 @@ SENSOR_TYPES = {
 def sensor_defaults(config):
     """Apply per-type metadata before ESPHome generates its entity tables."""
     defaults = SENSOR_TYPES[config[CONF_TYPE]]
-    for key, source in ((CONF_UNIT_OF_MEASUREMENT, "unit"),
-                        (CONF_DEVICE_CLASS, "device_class"),
-                        (CONF_ACCURACY_DECIMALS, "accuracy_decimals")):
+    for key, source in (
+        (CONF_UNIT_OF_MEASUREMENT, "unit"),
+        (CONF_DEVICE_CLASS, "device_class"),
+        (CONF_ACCURACY_DECIMALS, "accuracy_decimals"),
+    ):
         if key not in config and source in defaults:
             config[key] = defaults[source]
     return config
