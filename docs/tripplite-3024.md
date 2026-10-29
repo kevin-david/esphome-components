@@ -44,12 +44,9 @@ Override `ups_update_interval` and `ups_diagnostic_dump` in device substitutions
 Device `logger:` and `ups_hid:` settings also override package defaults.
 The component's standalone polling default is 30 seconds.
 
-For an existing manually configured hub, import
-[tripplite_extras.yaml](../configs/tripplite_extras.yaml) for controls and
-read-only diagnostics, or
-[tripplite_diagnostics.yaml](../configs/tripplite_diagnostics.yaml) for diagnostics
-alone, using the same remote-package syntax. Both expect hub ID `ups_monitor`.
-Copying their platform entries into existing YAML sections also works.
+The package contains all UPS measurements, diagnostics and controls. When
+migrating a manual setup, replace the UPS declarations with this one import;
+keep board, networking, API/OTA and board LED settings in the device YAML.
 
 ## Measurements and status
 

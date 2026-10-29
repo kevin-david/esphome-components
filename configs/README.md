@@ -40,9 +40,8 @@ controls. Keep board and network settings in your device YAML. The
 [LOLIN S3 Mini example](examples/tripplite-s3-mini.yaml) shows the complete device
 configuration; [the driver guide](../docs/tripplite-3024.md) covers overrides.
 
-`tripplite_extras.yaml` and `tripplite_diagnostics.yaml` remain available for
-setups that already declare their own hub and core sensors. Import only the
-complete package when using `tripplite.yaml`.
+`tripplite.yaml` contains all UPS entities and controls. Import it once rather
+than declaring the same hub or entities in the device YAML.
 
 ### **Optional Enhancement Packages**
 
