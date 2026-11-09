@@ -58,12 +58,8 @@ private:
         usb_device_handle_t dev_hdl{nullptr};
         uint8_t address{0};
         uint8_t interface_num{0};
-        uint8_t ep_in{0};
-        uint8_t ep_out{0};
         uint16_t vendor_id{0};
         uint16_t product_id{0};
-        uint16_t max_packet_size_in{0};
-        uint16_t max_packet_size_out{0};
         usb_speed_t speed{USB_SPEED_LOW};
     };
     
@@ -108,7 +104,6 @@ private:
     esp_err_t teardown_usb_host();
     esp_err_t find_and_open_device();
     esp_err_t claim_interface();
-    esp_err_t find_endpoints();
     
     void set_last_error(const std::string& error);
 

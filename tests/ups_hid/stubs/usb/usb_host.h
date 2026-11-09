@@ -29,8 +29,7 @@ struct usb_device_desc_t {
   uint16_t idVendor = 0x09ae, idProduct = 0x3024;
 };
 struct usb_config_desc_t { uint16_t wTotalLength = 34; uint8_t bNumInterfaces = 1; };
-struct usb_intf_desc_t { uint8_t bInterfaceClass = 3, bInterfaceNumber = 0, bNumEndpoints = 1; };
-struct usb_ep_desc_t { uint8_t bEndpointAddress = 0x81; uint16_t wMaxPacketSize = 8; };
+struct usb_intf_desc_t { uint8_t bInterfaceClass = 3, bInterfaceNumber = 0; };
 struct usb_device_info_t { usb_speed_t speed = USB_SPEED_LOW; };
 enum { USB_HOST_CLIENT_EVENT_NEW_DEV, USB_HOST_CLIENT_EVENT_DEV_GONE };
 struct usb_host_client_event_msg_t {
@@ -69,4 +68,3 @@ esp_err_t usb_host_interface_claim(usb_host_client_handle_t, usb_device_handle_t
 esp_err_t usb_host_interface_release(usb_host_client_handle_t, usb_device_handle_t, uint8_t);
 esp_err_t usb_host_transfer_submit_control(usb_host_client_handle_t, usb_transfer_t *);
 const usb_intf_desc_t *usb_parse_interface_descriptor(const usb_config_desc_t *, int, int, int *);
-const usb_ep_desc_t *usb_parse_endpoint_descriptor_by_index(const usb_intf_desc_t *, int, int, int *);

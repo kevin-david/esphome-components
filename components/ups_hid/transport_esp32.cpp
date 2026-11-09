@@ -447,65 +447,6 @@ esp_err_t Esp32UsbTransport::claim_interface() {
     return ESP_OK;
 }
 
-esp_err_t Esp32UsbTransport::find_endpoints() {
-    const usb_config_desc_t *config_desc;
-    esp_err_t ret = usb_host_get_active_config_descriptor(device_.dev_hdl, &config_desc);
-    if (ret != ESP_OK) {
-        return ret;
-    }
-    
-    int offset = 0;
-    const usb_intf_desc_t *intf_desc = usb_parse_interface_descriptor(
-        config_desc, device_.interface_num, 0, &offset);
-    
-    if (!intf_desc) {
-        set_last_error("Interface descriptor not found");
-        return ESP_ERR_NOT_FOUND;
-    }
-    
-    // Parse endpoints correctly using ESP-IDF approach
-    const usb_ep_desc_t *ep_desc = nullptr;
-    int ep_offset = offset;
-    
-    ESP_LOGD(ESP32_USB_TAG, "Interface has %d endpoints", intf_desc->bNumEndpoints);
-    
-    for (int i = 0; i < intf_desc->bNumEndpoints; i++) {
-        ep_desc = usb_parse_endpoint_descriptor_by_index(intf_desc, i, config_desc->wTotalLength, &ep_offset);
-        if (ep_desc) {
-            if (USB_EP_DESC_GET_EP_DIR(ep_desc)) {
-                // IN endpoint (device to host)
-                device_.ep_in = ep_desc->bEndpointAddress;
-                device_.max_packet_size_in = ep_desc->wMaxPacketSize;
-                ESP_LOGD(ESP32_USB_TAG, "Found IN endpoint: 0x%02X (max packet size: %d)",
-                         device_.ep_in, device_.max_packet_size_in);
-            } else {
-                // OUT endpoint (host to device)
-                device_.ep_out = ep_desc->bEndpointAddress;
-                device_.max_packet_size_out = ep_desc->wMaxPacketSize;
-                ESP_LOGD(ESP32_USB_TAG, "Found OUT endpoint: 0x%02X (max packet size: %d)",
-                         device_.ep_out, device_.max_packet_size_out);
-            }
-        } else {
-            ESP_LOGW(ESP32_USB_TAG, "Failed to parse endpoint %d", i);
-        }
-    }
-
-    if (device_.ep_in == 0) {
-        set_last_error("No IN endpoint found");
-        return ESP_ERR_NOT_FOUND;
-    }
-
-    // Detect input-only devices (no OUT endpoint)
-    if (device_.ep_out == 0) {
-        ESP_LOGW(ESP32_USB_TAG, "INPUT-ONLY HID device detected - no OUT endpoint available");
-        ESP_LOGI(ESP32_USB_TAG, "Device supports HID GET_REPORT only (no SET_REPORT)");
-    } else {
-        ESP_LOGD(ESP32_USB_TAG, "Bidirectional device detected - has both IN and OUT endpoints");
-    }
-    
-    return ESP_OK;
-}
-
 void Esp32UsbTransport::usb_client_event_callback(const usb_host_client_event_msg_t* event_msg, void* arg) {
     Esp32UsbTransport* transport = static_cast<Esp32UsbTransport*>(arg);
     
@@ -577,16 +518,13 @@ void Esp32UsbTransport::handle_new_device(uint8_t dev_addr) {
         if (device_desc->bDeviceClass == USB_CLASS_HID || 
             device_desc->bDeviceClass == 0x00) { // Device class defined at interface level
             
-            // Try to claim HID interface and find endpoints
+            // HID reports and descriptors use the default control endpoint.
             ret = claim_interface();
             if (ret == ESP_OK) {
-                ret = find_endpoints();
-                if (ret == ESP_OK) {
-                    ++connection_id_;
-                    connected_ = true;
-                    ESP_LOGI(ESP32_USB_TAG, "UPS device successfully configured and ready");
-                    return;
-                }
+                ++connection_id_;
+                connected_ = true;
+                ESP_LOGI(ESP32_USB_TAG, "UPS device successfully configured and ready");
+                return;
             }
         } else {
             ESP_LOGW(ESP32_USB_TAG, "Connected device is not a HID device (class=0x%02X)", device_desc->bDeviceClass);

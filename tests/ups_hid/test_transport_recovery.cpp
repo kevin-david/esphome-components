@@ -162,9 +162,6 @@ esp_err_t usb_host_get_active_config_descriptor(usb_device_handle_t, const usb_c
 const usb_intf_desc_t *usb_parse_interface_descriptor(const usb_config_desc_t *, int, int, int *) {
   static const usb_intf_desc_t descriptor{}; return &descriptor;
 }
-const usb_ep_desc_t *usb_parse_endpoint_descriptor_by_index(const usb_intf_desc_t *, int, int, int *) {
-  static const usb_ep_desc_t descriptor{}; return &descriptor;
-}
 esp_err_t usb_host_device_addr_list_fill(int, uint8_t *, int *count) { *count = 0; return ESP_OK; }
 esp_err_t usb_host_client_deregister(usb_host_client_handle_t) { return ESP_OK; }
 esp_err_t usb_host_install(const usb_host_config_t *) { return ESP_OK; }
