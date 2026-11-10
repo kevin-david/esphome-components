@@ -203,6 +203,17 @@ that requires re-enumeration, checks capped backoff and verifies communication
 returns only after fresh data. Physical validation of recovery after a natural
 USB failure is still required.
 
+On 2026-11-09, two forced USB root-port disconnects on the INTERNET350U recovered
+with fresh enumeration, descriptor reads and measurements while ESP32 uptime
+continued. Communication changed to Disconnected during each interruption and
+returned to Connected after fresh data. The original prolonged bus-error trigger
+has not been reproduced. The final installed firmware excludes the test action.
+
+`python tests/ups_hid/prepare_hardware.py --help` describes the hardware-trial config
+helper. It stages private test and final configs and a pinned dashboard config
+from an existing device YAML. Generated files contain the device credentials
+and belong outside the repository.
+
 From the repository root with ESPHome 2026.10.1 installed:
 
 ```sh
