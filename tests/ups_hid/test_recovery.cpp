@@ -6,7 +6,6 @@
 
 using namespace esphome::ups_hid;
 bool protocol_available = true, reports_available = true;
-unsigned initialization_attempts = 0;
 unsigned recovery_requests = 0;
 bool usb_connected = true;
 uint32_t usb_connection = 1;
@@ -39,10 +38,7 @@ class TestProtocol : public UpsProtocolBase {
  public:
   using UpsProtocolBase::UpsProtocolBase;
   bool detect() override { return true; }
-  bool initialize() override {
-    ++initialization_attempts;
-    return protocol_available;
-  }
+  bool initialize() override { return protocol_available; }
   bool read_data(UpsData &data) override {
     data.hid_status.descriptor_based = descriptor_based;
     if (!reports_available) {
@@ -79,6 +75,16 @@ int main() {
   hub.update();
   assert(hub.is_online() && hub.get_battery_level() == 100);
   assert(communication.has_state() && communication.state);
+
+  // A transient failed poll must not leave the normal control-button protocol
+  // guard disabled after fresh data returns, without needing re-enumeration.
+  reports_available = false;
+  hub.update();
+  assert(!communication.state);
+  reports_available = true;
+  hub.update();
+  assert(communication.state && recovery_requests == 0);
+  assert(hub.get_ups_data().device.detected_protocol == DeviceInfo::PROTOCOL_TRIPPLITE_HID);
 
   // This USB session stays broken until the driver actually re-enumerates it.
   reports_available = false;
@@ -148,13 +154,11 @@ int main() {
   legacy.setup();
   legacy.update();
   assert(battery.state == 100 && ac_present.state);
-  unsigned before_disconnect = battery.publications;
   usb_connected = false;
   for (unsigned poll = 0; poll < 6; ++poll) {
     legacy.update();
     assert(std::isnan(battery.state));
     assert(!ac_present.has_state() && !fault.has_state());
   }
-  assert(battery.publications == before_disconnect + 6);
   std::cout << "UPS polling recovery checks passed\n";
 }

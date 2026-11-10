@@ -532,10 +532,6 @@ void Esp32UsbTransport::handle_new_device(uint8_t dev_addr) {
     }
     
     // Clean up on failure
-    if (interface_claimed_) {
-        usb_host_interface_release(device_.client_hdl, device_.dev_hdl, device_.interface_num);
-        interface_claimed_ = false;
-    }
     usb_host_device_close(device_.client_hdl, device_.dev_hdl);
     device_.dev_hdl = nullptr;
 }

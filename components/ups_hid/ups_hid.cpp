@@ -266,12 +266,6 @@ bool UpsHidComponent::detect_protocol() {
   ESP_LOGI(TAG, "Protocol initialized: %s", 
            active_protocol_->get_protocol_name().c_str());
   
-  // Set the detected protocol in ups_data_ after successful detection
-  {
-    std::lock_guard<std::mutex> lock(data_mutex_);
-    ups_data_.device.detected_protocol = active_protocol_->get_protocol_type();
-  }
-  
   return true;
 }
 
@@ -283,14 +277,9 @@ bool UpsHidComponent::read_ups_data() {
   
   std::lock_guard<std::mutex> lock(data_mutex_);
   
-  // Preserve the detected protocol before reset
-  DeviceInfo::DetectedProtocol current_protocol = ups_data_.device.detected_protocol;
-  
-  // Reset data before reading
+  // Sample identity comes from the active driver, not the previous sample.
   ups_data_.reset();
-  
-  // Restore the detected protocol after reset
-  ups_data_.device.detected_protocol = current_protocol;
+  ups_data_.device.detected_protocol = active_protocol_->get_protocol_type();
   
   // Read data through protocol
   bool success = active_protocol_->read_data(ups_data_);
